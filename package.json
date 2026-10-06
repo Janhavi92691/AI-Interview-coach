@@ -11,6 +11,7 @@
     "smoke:ai": "node scripts/ai-smoke.mjs"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.34.0",
     "@base-ui/react": "^1.8.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -21,6 +22,7 @@
     "next": "16.3.8",
     "next-themes": "^0.4.6",
     "openai": "^7.28.0",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",

@@ -78,26 +78,33 @@ export function ResumeUpload({ onUploadSuccess, maxMb = 5 }) {
 
     try {
       setUploadStep("uploading");
-      // Simulate stepped progression for Phase 1 UI demo
-      await new Promise((r) => setTimeout(r, 1000));
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
       setUploadStep("analyzing");
-      await new Promise((r) => setTimeout(r, 1400));
+
+      const res = await fetch("/api/resumes/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Resume upload failed.");
+      }
 
       toast.success("Resume uploaded and analyzed successfully!");
       setUploadStep(null);
       if (onUploadSuccess) {
-        onUploadSuccess({
-          id: "res_new_" + Date.now(),
-          fileName: selectedFile.name,
-          fileSizeBytes: selectedFile.size,
-          createdAt: new Date().toISOString(),
-        });
+        onUploadSuccess(data.resume);
       }
       setSelectedFile(null);
-    } catch {
+    } catch (err) {
       setUploadStep(null);
-      setErrorMessage("Resume upload failed. Please check the file and try again.");
-      toast.error("Resume upload failed. Please check the file and try again.");
+      setErrorMessage(err.message || "Resume upload failed. Please check the file and try again.");
+      toast.error(err.message || "Resume upload failed. Please check the file and try again.");
     }
   };
 

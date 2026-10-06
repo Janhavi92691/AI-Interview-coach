@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ResumeUpload } from "@/components/ResumeUpload";
 import { ResumeAnalysisView } from "@/components/ResumeAnalysisView";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,35 +14,27 @@ export default function ResumePage() {
     mockResumes.length > 0 ? mockResumes[0].id : null
   );
 
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/resumes")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.resumes && data.resumes.length > 0) {
+          setResumes(data.resumes);
+          setActiveResumeId(data.resumes[0].id);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const activeResume = resumes.find((r) => r.id === activeResumeId) || resumes[0];
 
   const handleUploadSuccess = (newResume) => {
-    // Populate realistic mock analysis for the uploaded resume in Phase 1
-    const populated = {
-      ...newResume,
-      analysis: {
-        skills: ["Cloud Architecture", "Database Performance", "API Design", "Full Stack Development"],
-        technologies: ["Next.js", "React", "Node.js", "Azure Functions", "Azure SQL", "Tailwind CSS"],
-        projects: [
-          {
-            name: "Cloud-Native Interview System",
-            summary: "Architected distributed web application with decoupled serverless workers and private object storage.",
-          },
-        ],
-        education: ["B.Tech in Computer Engineering"],
-        certifications: ["Microsoft Certified: Azure Fundamentals (AZ-900)"],
-        experience: [
-          {
-            title: "Software Engineering Intern",
-            organization: "Tech Innovation Hub",
-            summary: "Developed microservices and tuned parameterized queries against relational databases.",
-          },
-        ],
-      },
-    };
-
-    setResumes((prev) => [populated, ...prev]);
-    setActiveResumeId(populated.id);
+    setResumes((prev) => [newResume, ...prev]);
+    setActiveResumeId(newResume.id);
   };
 
   return (
