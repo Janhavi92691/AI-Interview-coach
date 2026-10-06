@@ -18,6 +18,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { Sparkles, ArrowRight, FileText, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { createInterviewSession } from "@/lib/interview-store";
 
 const ROLE_PRESETS = [
   "Software Developer",
@@ -78,10 +79,17 @@ export function InterviewSetupForm({ resumes = [], initialType, initialResumeId 
     setIsLoading(true);
 
     try {
-      // Simulate question generation latency for Phase 1 UI demo
-      await new Promise((resolve) => setTimeout(resolve, 1400));
+      const selectedResume = resumes.find((r) => r.id === selectedResumeId);
+      const session = await createInterviewSession({
+        role: effectiveRole,
+        type: interviewType,
+        difficulty,
+        count: questionCount,
+        resumeAnalysis: selectedResume?.analysis || null,
+      });
+
       toast.success("Interview created successfully.");
-      router.push("/interview/int_mock_live");
+      router.push(`/interview/${session.id}`);
     } catch {
       setIsLoading(false);
       toast.error("Unable to generate questions. Please try again.");

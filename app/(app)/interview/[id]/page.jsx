@@ -1,24 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { QuestionCard } from "@/components/QuestionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { LoadingState } from "@/components/LoadingState";
+import {
+  getInterviewSession,
+  submitQuestionAnswer,
+  completeInterviewSession,
+} from "@/lib/interview-store";
 import { mockActiveInterview } from "@/lib/mock-data";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LiveInterviewPage({ params }) {
+  const unwrappedParams = use(params);
+  const interviewId = unwrappedParams.id;
   const router = useRouter();
-  const [interview, setInterview] = useState(mockActiveInterview);
-  const [currentIndex, setCurrentIndex] = useState(0); // 0-indexed
+
+  // Initialize state directly from interview store without cascading setState in effect
+  const [interview, setInterview] = useState(() => {
+    let session = getInterviewSession(interviewId);
+    if (!session && interviewId === "int_mock_live") {
+      session = mockActiveInterview;
+    }
+    return session || null;
+  });
+
+  // Resume at first unanswered question
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    let session = getInterviewSession(interviewId);
+    if (!session && interviewId === "int_mock_live") {
+      session = mockActiveInterview;
+    }
+    if (session) {
+      const firstUnanswered = session.questions.findIndex((q) => q.answer == null);
+      return firstUnanswered === -1 ? 0 : firstUnanswered;
+    }
+    return 0;
+  });
+
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  const currentQuestion = interview.questions[currentIndex];
+  // If session is already completed, redirect to results
+  useEffect(() => {
+    if (interview && interview.status === "completed") {
+      const allDone = interview.questions.every((q) => q.answer != null);
+      if (allDone) {
+        router.replace(`/results/${interview.id}`);
+      }
+    }
+  }, [interview, router]);
+
+  if (!interview) {
+    return (
+      <div className="max-w-3xl mx-auto py-12">
+        <LoadingState
+          message="Loading interview session..."
+          subtitle="Retrieving questions and current progress"
+        />
+      </div>
+    );
+  }
+
+  const currentQuestion = interview.questions[currentIndex] || interview.questions[0];
   const isAnswered = currentQuestion?.answer != null;
   const isLastQuestion = currentIndex === interview.questions.length - 1;
   const progressPercent = Math.round(((currentIndex + 1) / interview.questions.length) * 100);
@@ -27,29 +76,18 @@ export default function LiveInterviewPage({ params }) {
     setIsEvaluating(true);
 
     try {
-      // Phase 1 UI simulation
-      await new Promise((r) => setTimeout(r, 1200));
-
-      const simulatedEvaluation = {
-        id: `ans_${Date.now()}`,
+      const evaluationResult = await submitQuestionAnswer({
+        interviewId: interview.id,
+        questionId: currentQuestion.id,
         answerText,
-        score: 8,
-        correctness: 8,
-        technicalDepth: 8,
-        clarity: 9,
-        relevance: 9,
-        feedback: {
-          did_well: "Comprehensive explanation covering the critical mechanics and direct trade-offs.",
-          missing: "Could mention specific failure modes or production concurrency scenarios.",
-          improve: "Strengthen the response by citing benchmark numbers or concrete architectural examples.",
-        },
-      };
+      });
 
+      // Update state with evaluated answer
       setInterview((prev) => {
         const updatedQuestions = [...prev.questions];
         updatedQuestions[currentIndex] = {
           ...updatedQuestions[currentIndex],
-          answer: simulatedEvaluation,
+          answer: evaluationResult,
         };
         return {
           ...prev,
@@ -59,18 +97,23 @@ export default function LiveInterviewPage({ params }) {
 
       setIsEvaluating(false);
       toast.success("Answer evaluated!");
-    } catch {
+    } catch (err) {
       setIsEvaluating(false);
-      toast.error("Unable to evaluate your answer. Please try again.");
+      toast.error(err.message || "Unable to evaluate your answer. Please try again.");
     }
   };
 
   const handleNextQuestion = async () => {
     if (isLastQuestion) {
       setIsFinishing(true);
-      await new Promise((r) => setTimeout(r, 1200));
-      toast.success("Interview completed! Generating report...");
-      router.push(`/results/${interview.id}`);
+      try {
+        await completeInterviewSession(interview.id);
+        toast.success("Interview completed! Generating report...");
+        router.push(`/results/${interview.id}`);
+      } catch (err) {
+        setIsFinishing(false);
+        toast.error(err.message || "Unable to complete interview.");
+      }
     } else {
       setCurrentIndex((prev) => prev + 1);
     }
@@ -136,6 +179,7 @@ export default function LiveInterviewPage({ params }) {
           clarity={currentQuestion.answer.clarity}
           relevance={currentQuestion.answer.relevance}
           feedback={currentQuestion.answer.feedback}
+          followUp={currentQuestion.answer.followUp}
           isLastQuestion={isLastQuestion}
           onNext={handleNextQuestion}
         />

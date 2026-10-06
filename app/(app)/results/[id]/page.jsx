@@ -1,6 +1,8 @@
 "use client";
 
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,10 +18,10 @@ import {
   CheckCircle2,
   AlertCircle,
   BookOpen,
-  ArrowRight,
   History,
   RotateCcw,
 } from "lucide-react";
+import { getInterviewSession } from "@/lib/interview-store";
 import { mockInterviewResult } from "@/lib/mock-data";
 
 export function getScoreBadge(score) {
@@ -30,7 +32,43 @@ export function getScoreBadge(score) {
 }
 
 export default function InterviewResultPage({ params }) {
-  const result = mockInterviewResult;
+  const unwrappedParams = use(params);
+  const interviewId = unwrappedParams.id;
+  const router = useRouter();
+
+  // Initialize result directly from session store without cascading setState in effect
+  const [result] = useState(() => {
+    const session = getInterviewSession(interviewId);
+    return session || mockInterviewResult;
+  });
+
+  // Redirect in-progress interviews back to interview room
+  useEffect(() => {
+    if (result && result.status === "in_progress") {
+      router.replace(`/interview/${result.id}`);
+    }
+  }, [result, router]);
+
+  if (!result) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 text-center text-xs text-slate-400">
+        Loading performance report...
+      </div>
+    );
+  }
+
+  const metrics = result.metrics || {
+    technicalKnowledge: 80,
+    answerQuality: 80,
+    clarity: 80,
+  };
+
+  const report = result.report || {
+    summary: "Performance report successfully generated.",
+    strengths: ["Clear technical explanations"],
+    weaknesses: ["Could deepen complexity considerations"],
+    recommended_topics: ["Distributed Systems", "Database Optimization"],
+  };
 
   return (
     <div className="max-w-4xl mx-auto py-4 space-y-8">
@@ -59,7 +97,7 @@ export default function InterviewResultPage({ params }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
             {/* Score Ring */}
             <div className="flex justify-center md:border-r md:border-[#232C52] md:pr-6">
-              <ScoreRing score={result.overallScore} max={100} size={150} strokeWidth={12} />
+              <ScoreRing score={result.overallScore ?? 80} max={100} size={150} strokeWidth={12} />
             </div>
 
             {/* 3 Metric Bars */}
@@ -72,12 +110,12 @@ export default function InterviewResultPage({ params }) {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-white">Technical Knowledge (Depth)</span>
-                  <span className="text-[#4F7CFF]">{result.metrics.technicalKnowledge}%</span>
+                  <span className="text-[#4F7CFF]">{metrics.technicalKnowledge}%</span>
                 </div>
                 <div className="w-full bg-[#0B1020] h-2 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#4F7CFF] rounded-full"
-                    style={{ width: `${result.metrics.technicalKnowledge}%` }}
+                    style={{ width: `${metrics.technicalKnowledge}%` }}
                   />
                 </div>
               </div>
@@ -86,12 +124,12 @@ export default function InterviewResultPage({ params }) {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-white">Answer Quality (Correctness & Relevance)</span>
-                  <span className="text-emerald-400">{result.metrics.answerQuality}%</span>
+                  <span className="text-emerald-400">{metrics.answerQuality}%</span>
                 </div>
                 <div className="w-full bg-[#0B1020] h-2 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-400 rounded-full"
-                    style={{ width: `${result.metrics.answerQuality}%` }}
+                    style={{ width: `${metrics.answerQuality}%` }}
                   />
                 </div>
               </div>
@@ -100,12 +138,12 @@ export default function InterviewResultPage({ params }) {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-white">Communication & Articulation Clarity</span>
-                  <span className="text-[#8B5CF6]">{result.metrics.clarity}%</span>
+                  <span className="text-[#8B5CF6]">{metrics.clarity}%</span>
                 </div>
                 <div className="w-full bg-[#0B1020] h-2 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#8B5CF6] rounded-full"
-                    style={{ width: `${result.metrics.clarity}%` }}
+                    style={{ width: `${metrics.clarity}%` }}
                   />
                 </div>
               </div>
@@ -124,7 +162,7 @@ export default function InterviewResultPage({ params }) {
         </CardHeader>
         <CardContent className="p-6">
           <p className="text-sm text-slate-300 leading-relaxed">
-            {result.report.summary}
+            {report.summary}
           </p>
         </CardContent>
       </Card>
@@ -140,7 +178,7 @@ export default function InterviewResultPage({ params }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5 space-y-3">
-            {result.report.strengths.map((s, i) => (
+            {report.strengths.map((s, i) => (
               <div key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-300">
                 <span className="text-emerald-400 font-bold">✓</span>
                 <span>{s}</span>
@@ -158,7 +196,7 @@ export default function InterviewResultPage({ params }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5 space-y-3">
-            {result.report.weaknesses.map((w, i) => (
+            {report.weaknesses.map((w, i) => (
               <div key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-300">
                 <span className="text-amber-400 font-bold">•</span>
                 <span>{w}</span>
@@ -178,7 +216,7 @@ export default function InterviewResultPage({ params }) {
         </CardHeader>
         <CardContent className="p-6">
           <ol className="grid grid-cols-1 sm:grid-cols-2 gap-3 list-decimal list-inside text-xs sm:text-sm text-slate-300 font-medium">
-            {result.report.recommended_topics.map((topic, i) => (
+            {report.recommended_topics.map((topic, i) => (
               <li key={i} className="p-3 rounded-lg bg-[#161F42] border border-[#232C52]">
                 <span className="text-white font-semibold">{topic}</span>
               </li>
@@ -197,11 +235,20 @@ export default function InterviewResultPage({ params }) {
         <CardContent className="p-6">
           <Accordion className="space-y-3">
             {result.questions.map((q, idx) => {
-              const meta = getScoreBadge(q.answer.score);
+              const ans = q.answer || {
+                score: 7,
+                answerText: "No answer recorded.",
+                feedback: {
+                  did_well: "Answer attempted.",
+                  missing: "Incomplete details.",
+                  improve: "Provide full context.",
+                },
+              };
+              const meta = getScoreBadge(ans.score);
               return (
                 <AccordionItem
-                  key={q.id}
-                  value={q.id}
+                  key={q.id || idx}
+                  value={q.id || `q_${idx}`}
                   className="border border-[#232C52] rounded-lg px-4 bg-[#161F42]/40"
                 >
                   <AccordionTrigger className="hover:no-underline py-3 text-left">
@@ -215,7 +262,7 @@ export default function InterviewResultPage({ params }) {
                         </span>
                       </div>
                       <Badge variant="outline" className={`text-xs font-bold ${meta.color}`}>
-                        Score: {q.answer.score}/10
+                        Score: {ans.score}/10
                       </Badge>
                     </div>
                   </AccordionTrigger>
@@ -225,7 +272,7 @@ export default function InterviewResultPage({ params }) {
                         Your Answer
                       </span>
                       <p className="text-xs sm:text-sm text-slate-200 bg-[#0B1020] p-3 rounded-lg border border-[#232C52]">
-                        {q.answer.answerText}
+                        {ans.answerText}
                       </p>
                     </div>
 
@@ -239,7 +286,7 @@ export default function InterviewResultPage({ params }) {
                             Did Well
                           </span>
                           <p className="text-xs text-slate-300 mt-1">
-                            {q.answer.feedback.did_well}
+                            {ans.feedback.did_well}
                           </p>
                         </div>
                         <div className="p-2.5 rounded-lg bg-[#111936] border border-[#232C52]">
@@ -247,7 +294,7 @@ export default function InterviewResultPage({ params }) {
                             Missing
                           </span>
                           <p className="text-xs text-slate-300 mt-1">
-                            {q.answer.feedback.missing}
+                            {ans.feedback.missing}
                           </p>
                         </div>
                         <div className="p-2.5 rounded-lg bg-[#111936] border border-[#232C52]">
@@ -255,7 +302,7 @@ export default function InterviewResultPage({ params }) {
                             Improve
                           </span>
                           <p className="text-xs text-slate-300 mt-1">
-                            {q.answer.feedback.improve}
+                            {ans.feedback.improve}
                           </p>
                         </div>
                       </div>
