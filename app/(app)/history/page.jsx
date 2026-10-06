@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { InterviewCard } from "@/components/InterviewCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -9,9 +9,38 @@ import { Button } from "@/components/ui/button";
 import { mockDashboardStats } from "@/lib/mock-data";
 import { PlusCircle, History } from "lucide-react";
 
+export function formatInterviewForCard(item) {
+  return {
+    id: item.id,
+    jobRole: item.job_role || item.jobRole,
+    interviewType: item.interview_type || item.interviewType,
+    difficulty: item.difficulty,
+    date: item.created_at ? new Date(item.created_at).toLocaleDateString() : (item.date || "Today"),
+    status: item.status,
+    overallScore: item.overall_score ?? item.overallScore,
+    totalQuestions: item.total_questions || item.totalQuestions || 5,
+    answeredQuestions: item.status === "completed" ? (item.total_questions || 5) : 1,
+  };
+}
+
 export default function HistoryPage() {
   const [filterType, setFilterType] = useState("all");
-  const interviews = mockDashboardStats.recentInterviews;
+  const [interviews, setInterviews] = useState(mockDashboardStats.recentInterviews);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/interviews")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.interviews && data.interviews.length > 0) {
+          setInterviews(data.interviews.map(formatInterviewForCard));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredInterviews =
     filterType === "all"

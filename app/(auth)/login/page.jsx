@@ -33,14 +33,25 @@ function LoginForm() {
     setIsSubmitting(true);
 
     try {
-      // Phase 1 UI simulation
-      await new Promise((r) => setTimeout(r, 800));
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Invalid email or password.");
+      }
+
       toast.success("Welcome back!");
       router.push(nextParam);
-    } catch {
+      router.refresh();
+    } catch (err) {
       setIsSubmitting(false);
-      setErrorMessage("Invalid email or password.");
-      toast.error("Invalid email or password.");
+      setErrorMessage(err.message || "Invalid email or password.");
+      toast.error(err.message || "Invalid email or password.");
     }
   };
 

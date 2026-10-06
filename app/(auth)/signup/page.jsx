@@ -44,14 +44,25 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      // Phase 1 UI simulation
-      await new Promise((r) => setTimeout(r, 900));
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || "An account with this email already exists.");
+      }
+
       toast.success("Account created successfully!");
       router.push(nextParam);
-    } catch {
+      router.refresh();
+    } catch (err) {
       setIsSubmitting(false);
-      setErrorMessage("An account with this email already exists.");
-      toast.error("An account with this email already exists.");
+      setErrorMessage(err.message || "An account with this email already exists.");
+      toast.error(err.message || "An account with this email already exists.");
     }
   };
 

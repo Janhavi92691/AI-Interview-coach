@@ -46,6 +46,58 @@ export default function LiveInterviewPage({ params }) {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
+  // If session is null on mount, fetch from server API
+  useEffect(() => {
+    if (!interview && interviewId) {
+      let isMounted = true;
+      fetch(`/api/interviews/${interviewId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!isMounted || !data) return;
+          const { interview: inv, questions, answers } = data;
+          const questionsWithAnswers = questions.map((q) => {
+            const ans = answers.find((a) => a.question_id === q.id);
+            return {
+              id: q.id,
+              question: q.question_text,
+              topic: q.topic,
+              category: q.category,
+              answer: ans
+                ? {
+                    id: ans.id,
+                    score: ans.score,
+                    correctness: ans.correctness,
+                    technicalDepth: ans.technical_depth,
+                    clarity: ans.clarity,
+                    relevance: ans.relevance,
+                    feedback: ans.feedback,
+                  }
+                : null,
+            };
+          });
+
+          const formattedSession = {
+            id: inv.id,
+            jobRole: inv.job_role,
+            interviewType: inv.interview_type,
+            difficulty: inv.difficulty,
+            totalQuestions: inv.total_questions,
+            status: inv.status,
+            questions: questionsWithAnswers,
+          };
+
+          setInterview(formattedSession);
+          const firstUnanswered = questionsWithAnswers.findIndex((q) => q.answer == null);
+          setCurrentIndex(firstUnanswered === -1 ? 0 : firstUnanswered);
+        })
+        .catch(() => {});
+
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [interview, interviewId]);
+
   // If session is already completed, redirect to results
   useEffect(() => {
     if (interview && interview.status === "completed") {
@@ -76,11 +128,44 @@ export default function LiveInterviewPage({ params }) {
     setIsEvaluating(true);
 
     try {
-      const evaluationResult = await submitQuestionAnswer({
-        interviewId: interview.id,
-        questionId: currentQuestion.id,
-        answerText,
-      });
+      // 1. Try server API first
+      let evaluationResult = null;
+      try {
+        const res = await fetch(`/api/interviews/${interview.id}/answers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question_id: currentQuestion.id,
+            answer_text: answerText,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const ans = data.answer;
+          evaluationResult = {
+            id: ans.id,
+            score: ans.score,
+            correctness: ans.correctness,
+            technicalDepth: ans.technical_depth,
+            clarity: ans.clarity,
+            relevance: ans.relevance,
+            feedback: ans.feedback,
+            followUp: ans.follow_up,
+          };
+        }
+      } catch {
+        // network or server fallback
+      }
+
+      // 2. Fallback to client session store if API call was bypassed
+      if (!evaluationResult) {
+        evaluationResult = await submitQuestionAnswer({
+          interviewId: interview.id,
+          questionId: currentQuestion.id,
+          answerText,
+        });
+      }
 
       // Update state with evaluated answer
       setInterview((prev) => {
@@ -107,6 +192,13 @@ export default function LiveInterviewPage({ params }) {
     if (isLastQuestion) {
       setIsFinishing(true);
       try {
+        // Try completing via server API
+        try {
+          await fetch(`/api/interviews/${interview.id}/complete`, { method: "POST" });
+        } catch {
+          // fallback
+        }
+
         await completeInterviewSession(interview.id);
         toast.success("Interview completed! Generating report...");
         router.push(`/results/${interview.id}`);

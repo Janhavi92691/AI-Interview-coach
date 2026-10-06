@@ -37,10 +37,57 @@ export default function InterviewResultPage({ params }) {
   const router = useRouter();
 
   // Initialize result directly from session store without cascading setState in effect
-  const [result] = useState(() => {
+  const [result, setResult] = useState(() => {
     const session = getInterviewSession(interviewId);
     return session || mockInterviewResult;
   });
+
+  useEffect(() => {
+    if (interviewId && interviewId !== "int_mock_completed") {
+      let isMounted = true;
+      fetch(`/api/interviews/${interviewId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!isMounted || !data?.interview) return;
+          const { interview: inv, questions, answers } = data;
+          if (inv.status === "completed" && inv.report) {
+            setResult({
+              id: inv.id,
+              jobRole: inv.job_role,
+              interviewType: inv.interview_type,
+              difficulty: inv.difficulty,
+              overallScore: inv.overall_score,
+              status: inv.status,
+              report: inv.report,
+              questions: questions.map((q) => {
+                const ans = answers.find((a) => a.question_id === q.id);
+                return {
+                  id: q.id,
+                  question: q.question_text,
+                  topic: q.topic,
+                  category: q.category,
+                  answer: ans
+                    ? {
+                        score: ans.score,
+                        correctness: ans.correctness,
+                        technicalDepth: ans.technical_depth,
+                        clarity: ans.clarity,
+                        relevance: ans.relevance,
+                        feedback: ans.feedback,
+                      }
+                    : null,
+                };
+              }),
+            });
+          }
+        })
+        .catch(() => {});
+
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [interviewId]);
 
   // Redirect in-progress interviews back to interview room
   useEffect(() => {

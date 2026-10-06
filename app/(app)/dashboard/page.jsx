@@ -17,12 +17,16 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { getCurrentUser } from "@/lib/auth";
+
 export default async function DashboardPage({ searchParams }) {
   const sp = await searchParams;
+  const user = await getCurrentUser({ requireAuth: false });
   // Support ?state=empty for viva inspection & dev testing
   const isEmptyState = sp?.state === "empty" || mockDashboardStats.totalInterviews === 0;
 
-  const firstName = mockUser.name.split(" ")[0];
+  const displayName = user?.name || mockUser.name;
+  const firstName = displayName.split(" ")[0];
 
   return (
     <div className="space-y-8">

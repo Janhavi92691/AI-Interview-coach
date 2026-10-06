@@ -79,6 +79,26 @@ export function InterviewSetupForm({ resumes = [], initialType, initialResumeId 
     setIsLoading(true);
 
     try {
+      const res = await fetch("/api/interviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_role: effectiveRole,
+          interview_type: interviewType,
+          difficulty,
+          total_questions: questionCount,
+          resume_id: interviewType === "Resume-Based" ? selectedResumeId || null : null,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        toast.success("Interview created successfully.");
+        router.push(`/interview/${data.interview.id}`);
+        return;
+      }
+
+      // Fallback to local session store if API auth or DB is unconfigured
       const selectedResume = resumes.find((r) => r.id === selectedResumeId);
       const session = await createInterviewSession({
         role: effectiveRole,
@@ -91,8 +111,21 @@ export function InterviewSetupForm({ resumes = [], initialType, initialResumeId 
       toast.success("Interview created successfully.");
       router.push(`/interview/${session.id}`);
     } catch {
-      setIsLoading(false);
-      toast.error("Unable to generate questions. Please try again.");
+      try {
+        const selectedResume = resumes.find((r) => r.id === selectedResumeId);
+        const session = await createInterviewSession({
+          role: effectiveRole,
+          type: interviewType,
+          difficulty,
+          count: questionCount,
+          resumeAnalysis: selectedResume?.analysis || null,
+        });
+        toast.success("Interview created successfully.");
+        router.push(`/interview/${session.id}`);
+      } catch {
+        setIsLoading(false);
+        toast.error("Unable to generate questions. Please try again.");
+      }
     }
   };
 
