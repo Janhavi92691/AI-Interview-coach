@@ -1,0 +1,16 @@
+{
+  "name": "ai-interview-coach-functions",
+  "version": "1.0.0",
+  "description": "Serverless AI workers for AI Interview Coach using Azure Functions v4 programming model",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "func start",
+    "test": "node --test test/**/*.test.mjs"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.6.0",
+    "openai": "^7.28.0",
+    "zod": "^4.6.5"
+  }
+}
