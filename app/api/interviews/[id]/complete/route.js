@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { ai } from "@/lib/ai";
 import { calculateOverallScore } from "@/lib/scoring";
 import { AppError, toErrorResponse } from "@/lib/errors";
+import { trackEvent, trackMetric } from "@/lib/telemetry";
 
 export async function POST(req, { params }) {
   try {
@@ -108,6 +109,15 @@ export async function POST(req, { params }) {
         completed_at: completedAt,
       }
     );
+
+    trackEvent("InterviewCompleted", {
+      interviewId,
+      userId: user.id,
+      overallScore,
+      jobRole: interview.job_role,
+      difficulty: interview.difficulty,
+    });
+    trackMetric("OverallInterviewScore", overallScore, { interviewId });
 
     return NextResponse.json({
       interview: {

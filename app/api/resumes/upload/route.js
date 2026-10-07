@@ -11,6 +11,7 @@ import { extractPdfText } from "@/lib/pdf";
 import { query } from "@/lib/db";
 import { ai } from "@/lib/ai";
 import { AppError, toErrorResponse } from "@/lib/errors";
+import { trackEvent } from "@/lib/telemetry";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -67,6 +68,13 @@ export async function POST(req) {
         created_at: createdAt,
       }
     );
+
+    trackEvent("ResumeUploaded", {
+      resumeId,
+      userId: user.id,
+      fileSizeBytes: file.size,
+      fileName,
+    });
 
     return NextResponse.json(
       {

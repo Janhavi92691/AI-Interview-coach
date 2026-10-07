@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createInterviewSchema } from "@/lib/validations";
 import { ai } from "@/lib/ai";
 import { AppError, toErrorResponse } from "@/lib/errors";
+import { trackEvent } from "@/lib/telemetry";
 
 export async function GET() {
   try {
@@ -116,6 +117,15 @@ export async function POST(req) {
       }
 
       return questionsWithIds;
+    });
+
+    trackEvent("InterviewCreated", {
+      interviewId,
+      userId: user.id,
+      jobRole: job_role,
+      interviewType: interview_type,
+      difficulty,
+      questionCount: total_questions,
     });
 
     return NextResponse.json(

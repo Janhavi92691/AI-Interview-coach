@@ -11,6 +11,7 @@ import { submitAnswerSchema } from "@/lib/validations";
 import { ai } from "@/lib/ai";
 import { calculateAnswerScore } from "@/lib/scoring";
 import { AppError, toErrorResponse } from "@/lib/errors";
+import { trackEvent, trackMetric } from "@/lib/telemetry";
 
 export async function POST(req, { params }) {
   try {
@@ -97,6 +98,14 @@ export async function POST(req, { params }) {
         feedback: JSON.stringify(evaluation.feedback),
       }
     );
+
+    trackEvent("AnswerSubmitted", {
+      interviewId,
+      questionId,
+      score: calculatedScore,
+      userId: user.id,
+    });
+    trackMetric("AnswerScore", calculatedScore, { interviewId });
 
     return NextResponse.json(
       {

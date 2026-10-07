@@ -11,6 +11,7 @@
     "smoke:ai": "node scripts/ai-smoke.mjs"
   },
   "dependencies": {
+    "@azure/monitor-opentelemetry": "^1.20.1",
     "@azure/storage-blob": "^12.34.0",
     "@base-ui/react": "^1.8.0",
     "bcryptjs": "^3.0.3",
