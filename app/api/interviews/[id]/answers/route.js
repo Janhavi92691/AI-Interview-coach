@@ -73,12 +73,12 @@ export async function POST(req, { params }) {
     });
 
     // 5. Calculate weighted rubric score (0-10) using pure mathematical engine
-    const calculatedScore = calculateAnswerScore(
-      evaluation.correctness,
-      evaluation.technical_depth,
-      evaluation.clarity,
-      evaluation.relevance
-    );
+    const calculatedScore = calculateAnswerScore({
+      correctness: evaluation.correctness,
+      technical_depth: evaluation.technical_depth,
+      clarity: evaluation.clarity,
+      relevance: evaluation.relevance,
+    });
 
     const answerId = crypto.randomUUID();
 
@@ -101,7 +101,7 @@ export async function POST(req, { params }) {
 
     trackEvent("AnswerSubmitted", {
       interviewId,
-      questionId,
+      questionId: question_id,
       score: calculatedScore,
       userId: user.id,
     });
@@ -125,6 +125,7 @@ export async function POST(req, { params }) {
       { status: 201 }
     );
   } catch (error) {
+    console.error("[Answers Route POST Error]:", error);
     const errRes = toErrorResponse(error);
     return NextResponse.json(errRes.body, { status: errRes.status });
   }
