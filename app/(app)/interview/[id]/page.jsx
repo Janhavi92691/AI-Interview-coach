@@ -51,12 +51,19 @@ export default function LiveInterviewPage({ params }) {
     if (!interview && interviewId) {
       let isMounted = true;
       fetch(`/api/interviews/${interviewId}`)
-        .then((res) => (res.ok ? res.json() : null))
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error?.message || "Failed to load interview session");
+          }
+          return res.json();
+        })
         .then((data) => {
           if (!isMounted || !data) return;
-          const { interview: inv, questions, answers } = data;
+          const { interview: inv, questions = [], answers = [] } = data;
           const questionsWithAnswers = questions.map((q) => {
-            const ans = answers.find((a) => a.question_id === q.id);
+            const qIdStr = String(q.id).toLowerCase();
+            const ans = answers.find((a) => String(a.question_id).toLowerCase() === qIdStr);
             return {
               id: q.id,
               question: q.question_text,
@@ -90,7 +97,12 @@ export default function LiveInterviewPage({ params }) {
           const firstUnanswered = questionsWithAnswers.findIndex((q) => q.answer == null);
           setCurrentIndex(firstUnanswered === -1 ? 0 : firstUnanswered);
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error("[LiveInterviewPage Load Error]:", err);
+          if (isMounted) {
+            toast.error(err.message || "Could not load interview session.");
+          }
+        });
 
       return () => {
         isMounted = false;
