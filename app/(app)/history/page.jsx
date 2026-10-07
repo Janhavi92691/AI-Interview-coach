@@ -25,18 +25,24 @@ export function formatInterviewForCard(item) {
 
 export default function HistoryPage() {
   const [filterType, setFilterType] = useState("all");
-  const [interviews, setInterviews] = useState(mockDashboardStats.recentInterviews);
+  const [interviews, setInterviews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     fetch("/api/interviews")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (isMounted && data?.interviews && data.interviews.length > 0) {
-          setInterviews(data.interviews.map(formatInterviewForCard));
+        if (isMounted) {
+          if (data?.interviews) {
+            setInterviews(data.interviews.map(formatInterviewForCard));
+          }
+          setIsLoading(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted) setIsLoading(false);
+      });
     return () => {
       isMounted = false;
     };

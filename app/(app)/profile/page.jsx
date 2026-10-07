@@ -3,10 +3,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockUser, mockDashboardStats } from "@/lib/mock-data";
 import { Mail, Calendar, LogOut, Award, BookOpen, TrendingUp, ShieldCheck } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
+import { query } from "@/lib/db";
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  const user = await getCurrentUser({ requireAuth: false });
+
+  let completedInterviews = 0;
+  let avgScore = 0;
+  let bestScore = 0;
+
+  if (user?.id) {
+    try {
+      const res = await query(
+        `SELECT overall_score FROM dbo.interviews WHERE user_id = @user_id AND status = 'completed' AND overall_score IS NOT NULL`,
+        { user_id: user.id }
+      );
+      const rows = res.recordset || [];
+      completedInterviews = rows.length;
+      if (completedInterviews > 0) {
+        avgScore = Math.round(rows.reduce((sum, r) => sum + r.overall_score, 0) / completedInterviews);
+        bestScore = Math.max(...rows.map((r) => r.overall_score));
+      }
+    } catch (e) {
+      console.error("[Profile Stats Query Error]", e);
+    }
+  }
+
+  const name = user?.name || "Candidate";
+  const email = user?.email || "candidate@example.com";
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="max-w-3xl mx-auto py-4 space-y-8">
       <div>
@@ -24,24 +57,24 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <Avatar className="w-20 h-20 border-2 border-[#4F7CFF] bg-[#161F42]">
               <AvatarFallback className="bg-[#161F42] text-white text-2xl font-bold">
-                JA
+                {initials}
               </AvatarFallback>
             </Avatar>
 
             <div className="space-y-3 flex-1 text-center sm:text-left">
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  {mockUser.name}
+                  {name}
                 </h3>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-1 text-xs text-slate-400">
                   <span className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    {mockUser.email}
+                    {email}
                   </span>
                   <span>•</span>
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    Joined {mockUser.memberSince}
+                    Active Account
                   </span>
                 </div>
               </div>
@@ -67,7 +100,7 @@ export default function ProfilePage() {
             <BookOpen className="w-4 h-4 text-[#4F7CFF]" />
           </div>
           <p className="text-2xl font-extrabold text-white mt-2">
-            {mockDashboardStats.totalInterviews}
+            {completedInterviews}
           </p>
           <span className="text-[11px] text-slate-400">Completed interviews</span>
         </Card>
@@ -78,7 +111,7 @@ export default function ProfilePage() {
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="text-2xl font-extrabold text-white mt-2">
-            {mockDashboardStats.avgScore}%
+            {avgScore}%
           </p>
           <span className="text-[11px] text-slate-400">Overall proficiency</span>
         </Card>
@@ -89,7 +122,7 @@ export default function ProfilePage() {
             <Award className="w-4 h-4 text-amber-400" />
           </div>
           <p className="text-2xl font-extrabold text-white mt-2">
-            {mockDashboardStats.bestScore}%
+            {bestScore}%
           </p>
           <span className="text-[11px] text-slate-400">Top performance</span>
         </Card>
