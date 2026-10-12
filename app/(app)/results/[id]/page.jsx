@@ -21,6 +21,7 @@ import {
   History,
   RotateCcw,
 } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
 import { getInterviewSession } from "@/lib/interview-store";
 import { mockInterviewResult } from "@/lib/mock-data";
 
@@ -36,10 +37,11 @@ export default function InterviewResultPage({ params }) {
   const interviewId = unwrappedParams.id;
   const router = useRouter();
 
-  // Initialize result directly from session store without cascading setState in effect
+  // For real Azure SQL IDs, initialize null to fetch fresh report
   const [result, setResult] = useState(() => {
+    if (interviewId === "int_mock_completed") return mockInterviewResult;
     const session = getInterviewSession(interviewId);
-    return session || mockInterviewResult;
+    return session || null;
   });
 
   useEffect(() => {
@@ -49,16 +51,32 @@ export default function InterviewResultPage({ params }) {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (!isMounted || !data?.interview) return;
-          const { interview: inv, questions, answers } = data;
-          if (inv.status === "completed" && inv.report) {
+          const { interview: inv, questions = [], answers = [] } = data;
+          if (inv.status === "in_progress") {
+            router.replace(`/interview/${inv.id}`);
+            return;
+          }
+
+          if (inv.status === "completed") {
+            const parsedReport = typeof inv.report === "string" ? JSON.parse(inv.report) : (inv.report || {});
+            const ansCount = answers.length || 1;
+            const avgTech = Math.round((answers.reduce((acc, a) => acc + (a.technical_depth || 0), 0) / ansCount) * 10);
+            const avgQuality = Math.round((answers.reduce((acc, a) => acc + (((a.correctness || 0) + (a.relevance || 0)) / 2), 0) / ansCount) * 10);
+            const avgClarity = Math.round((answers.reduce((acc, a) => acc + (a.clarity || 0), 0) / ansCount) * 10);
+
             setResult({
               id: inv.id,
               jobRole: inv.job_role,
               interviewType: inv.interview_type,
               difficulty: inv.difficulty,
-              overallScore: inv.overall_score,
+              overallScore: inv.overall_score ?? 80,
               status: inv.status,
-              report: inv.report,
+              report: parsedReport,
+              metrics: {
+                technicalKnowledge: avgTech || 80,
+                answerQuality: avgQuality || 80,
+                clarity: avgClarity || 80,
+              },
               questions: questions.map((q) => {
                 const ans = answers.find((a) => a.question_id === q.id);
                 return {
@@ -87,7 +105,7 @@ export default function InterviewResultPage({ params }) {
         isMounted = false;
       };
     }
-  }, [interviewId]);
+  }, [interviewId, router]);
 
   // Redirect in-progress interviews back to interview room
   useEffect(() => {
@@ -98,8 +116,11 @@ export default function InterviewResultPage({ params }) {
 
   if (!result) {
     return (
-      <div className="max-w-4xl mx-auto py-12 text-center text-xs text-slate-400">
-        Loading performance report...
+      <div className="max-w-3xl mx-auto py-12">
+        <LoadingState
+          message="Loading performance report..."
+          subtitle="Retrieving interview scores and AI analysis"
+        />
       </div>
     );
   }

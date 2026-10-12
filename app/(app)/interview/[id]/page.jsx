@@ -7,12 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { QuestionCard } from "@/components/QuestionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { LoadingState } from "@/components/LoadingState";
-import {
-  getInterviewSession,
-  submitQuestionAnswer,
-  completeInterviewSession,
-} from "@/lib/interview-store";
-import { mockActiveInterview } from "@/lib/mock-data";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -130,44 +124,32 @@ export default function LiveInterviewPage({ params }) {
     setIsEvaluating(true);
 
     try {
-      // 1. Try server API first
-      let evaluationResult = null;
-      try {
-        const res = await fetch(`/api/interviews/${interview.id}/answers`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question_id: currentQuestion.id,
-            answer_text: answerText,
-          }),
-        });
+      const res = await fetch(`/api/interviews/${interview.id}/answers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question_id: currentQuestion.id,
+          answer_text: answerText,
+        }),
+      });
 
-        if (res.ok) {
-          const data = await res.json();
-          const ans = data.answer;
-          evaluationResult = {
-            id: ans.id,
-            score: ans.score,
-            correctness: ans.correctness,
-            technicalDepth: ans.technical_depth,
-            clarity: ans.clarity,
-            relevance: ans.relevance,
-            feedback: ans.feedback,
-            followUp: ans.follow_up,
-          };
-        }
-      } catch {
-        // network or server fallback
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `Failed to submit answer (Status: ${res.status}). Please try again.`);
       }
 
-      // 2. Fallback to client session store if API call was bypassed
-      if (!evaluationResult) {
-        evaluationResult = await submitQuestionAnswer({
-          interviewId: interview.id,
-          questionId: currentQuestion.id,
-          answerText,
-        });
-      }
+      const data = await res.json();
+      const ans = data.answer;
+      const evaluationResult = {
+        id: ans.id,
+        score: ans.score,
+        correctness: ans.correctness,
+        technicalDepth: ans.technical_depth,
+        clarity: ans.clarity,
+        relevance: ans.relevance,
+        feedback: ans.feedback,
+        followUp: ans.follow_up,
+      };
 
       // Update state with evaluated answer
       setInterview((prev) => {
@@ -182,11 +164,12 @@ export default function LiveInterviewPage({ params }) {
         };
       });
 
-      setIsEvaluating(false);
       toast.success("Answer evaluated!");
     } catch (err) {
-      setIsEvaluating(false);
+      console.error("[handleSubmitAnswer Error]:", err);
       toast.error(err.message || "Unable to evaluate your answer. Please try again.");
+    } finally {
+      setIsEvaluating(false);
     }
   };
 
@@ -194,18 +177,20 @@ export default function LiveInterviewPage({ params }) {
     if (isLastQuestion) {
       setIsFinishing(true);
       try {
-        // Try completing via server API
-        try {
-          await fetch(`/api/interviews/${interview.id}/complete`, { method: "POST" });
-        } catch {
-          // fallback
+        const res = await fetch(`/api/interviews/${interview.id}/complete`, {
+          method: "POST",
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || "Failed to complete interview session.");
         }
 
-        await completeInterviewSession(interview.id);
         toast.success("Interview completed! Generating report...");
         router.push(`/results/${interview.id}`);
       } catch (err) {
         setIsFinishing(false);
+        console.error("[handleNextQuestion Error]:", err);
         toast.error(err.message || "Unable to complete interview.");
       }
     } else {
@@ -279,6 +264,7 @@ export default function LiveInterviewPage({ params }) {
         />
       ) : (
         <QuestionCard
+          key={currentQuestion.id}
           question={currentQuestion}
           questionNumber={currentIndex + 1}
           totalQuestions={interview.questions.length}

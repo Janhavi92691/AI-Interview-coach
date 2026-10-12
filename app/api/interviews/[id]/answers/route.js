@@ -29,7 +29,7 @@ export async function POST(req, { params }) {
 
     // 1. Verify interview exists and is owned by the current user
     const interviewRes = await query(
-      `SELECT id, difficulty, status FROM dbo.interviews WHERE id = @id AND user_id = @user_id`,
+      `SELECT id, job_role, difficulty, status FROM dbo.interviews WHERE id = @id AND user_id = @user_id`,
       { id: interviewId, user_id: user.id }
     );
 
@@ -67,9 +67,12 @@ export async function POST(req, { params }) {
 
     // 4. AI Evaluation
     const evaluation = await ai.evaluateAnswer({
-      question: question.question_text,
-      answer: answer_text,
+      role: interview.job_role,
       difficulty: interview.difficulty,
+      question: question.question_text,
+      topic: question.topic,
+      category: question.category,
+      answer: answer_text,
     });
 
     // 5. Calculate weighted rubric score (0-10) using pure mathematical engine
