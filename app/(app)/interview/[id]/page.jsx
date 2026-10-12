@@ -21,94 +21,82 @@ export default function LiveInterviewPage({ params }) {
   const interviewId = unwrappedParams.id;
   const router = useRouter();
 
-  // Initialize state directly from interview store without cascading setState in effect
-  const [interview, setInterview] = useState(() => {
-    let session = getInterviewSession(interviewId);
-    if (!session && interviewId === "int_mock_live") {
-      session = mockActiveInterview;
-    }
-    return session || null;
-  });
-
-  // Resume at first unanswered question
-  const [currentIndex, setCurrentIndex] = useState(() => {
-    let session = getInterviewSession(interviewId);
-    if (!session && interviewId === "int_mock_live") {
-      session = mockActiveInterview;
-    }
-    if (session) {
-      const firstUnanswered = session.questions.findIndex((q) => q.answer == null);
-      return firstUnanswered === -1 ? 0 : firstUnanswered;
-    }
-    return 0;
-  });
-
+  // Always initialize null and fetch real session from Azure SQL
+  const [interview, setInterview] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  // If session is null on mount, fetch from server API
+  // Fetch session and questions from server API
   useEffect(() => {
-    if (!interview && interviewId) {
-      let isMounted = true;
-      fetch(`/api/interviews/${interviewId}`)
-        .then(async (res) => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error?.message || "Failed to load interview session");
-          }
-          return res.json();
-        })
-        .then((data) => {
-          if (!isMounted || !data) return;
-          const { interview: inv, questions = [], answers = [] } = data;
-          const questionsWithAnswers = questions.map((q) => {
-            const qIdStr = String(q.id).toLowerCase();
-            const ans = answers.find((a) => String(a.question_id).toLowerCase() === qIdStr);
-            return {
-              id: q.id,
-              question: q.question_text,
-              topic: q.topic,
-              category: q.category,
-              answer: ans
-                ? {
-                    id: ans.id,
-                    score: ans.score,
-                    correctness: ans.correctness,
-                    technicalDepth: ans.technical_depth,
-                    clarity: ans.clarity,
-                    relevance: ans.relevance,
-                    feedback: ans.feedback,
-                  }
-                : null,
-            };
-          });
+    if (!interviewId) return;
 
-          const formattedSession = {
-            id: inv.id,
-            jobRole: inv.job_role,
-            interviewType: inv.interview_type,
-            difficulty: inv.difficulty,
-            totalQuestions: inv.total_questions,
-            status: inv.status,
-            questions: questionsWithAnswers,
+    let isMounted = true;
+    fetch(`/api/interviews/${interviewId}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || "Failed to load interview session");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted || !data) return;
+        const { interview: inv, questions = [], answers = [] } = data;
+
+        // Sort questions ascending by order
+        const sortedQuestions = [...questions].sort(
+          (a, b) => (a.question_order || 0) - (b.question_order || 0)
+        );
+
+        const questionsWithAnswers = sortedQuestions.map((q) => {
+          const qIdStr = String(q.id).toLowerCase();
+          const ans = answers.find((a) => String(a.question_id).toLowerCase() === qIdStr);
+          return {
+            id: q.id,
+            question: q.question_text,
+            topic: q.topic,
+            category: q.category,
+            questionOrder: q.question_order,
+            answer: ans
+              ? {
+                  id: ans.id,
+                  score: ans.score,
+                  correctness: ans.correctness,
+                  technicalDepth: ans.technical_depth,
+                  clarity: ans.clarity,
+                  relevance: ans.relevance,
+                  feedback: ans.feedback,
+                }
+              : null,
           };
-
-          setInterview(formattedSession);
-          const firstUnanswered = questionsWithAnswers.findIndex((q) => q.answer == null);
-          setCurrentIndex(firstUnanswered === -1 ? 0 : firstUnanswered);
-        })
-        .catch((err) => {
-          console.error("[LiveInterviewPage Load Error]:", err);
-          if (isMounted) {
-            toast.error(err.message || "Could not load interview session.");
-          }
         });
 
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [interview, interviewId]);
+        const formattedSession = {
+          id: inv.id,
+          jobRole: inv.job_role,
+          interviewType: inv.interview_type,
+          difficulty: inv.difficulty,
+          totalQuestions: inv.total_questions,
+          status: inv.status,
+          questions: questionsWithAnswers,
+        };
+
+        setInterview(formattedSession);
+        const firstUnanswered = questionsWithAnswers.findIndex((q) => q.answer == null);
+        setCurrentIndex(firstUnanswered === -1 ? 0 : firstUnanswered);
+      })
+      .catch((err) => {
+        console.error("[LiveInterviewPage Load Error]:", err);
+        if (isMounted) {
+          toast.error(err.message || "Could not load interview session.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [interviewId]);
 
   // If session is already completed, redirect to results
   useEffect(() => {
