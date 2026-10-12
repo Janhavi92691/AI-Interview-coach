@@ -55,6 +55,8 @@ export default function LiveInterviewPage({ params }) {
           return {
             id: q.id,
             question: q.question_text,
+            questionText: q.question_text,
+            question_text: q.question_text,
             topic: q.topic,
             category: q.category,
             questionOrder: q.question_order,

@@ -51,7 +51,7 @@ export function QuestionCard({
           </span>
         </div>
         <CardTitle className="text-lg sm:text-xl font-bold text-white mt-3 leading-relaxed">
-          {question?.questionText || "Loading question..."}
+          {question?.questionText || question?.question || question?.question_text || "Loading question..."}
         </CardTitle>
       </CardHeader>
 
