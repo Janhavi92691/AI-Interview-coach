@@ -18,7 +18,6 @@ import { LoadingState } from "@/components/LoadingState";
 import { Sparkles, ArrowRight, FileText, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { createInterviewSession } from "@/lib/interview-store";
 
 const ROLE_PRESETS = [
   "Software Developer",
@@ -98,34 +97,12 @@ export function InterviewSetupForm({ resumes = [], initialType, initialResumeId 
         return;
       }
 
-      // Fallback to local session store if API auth or DB is unconfigured
-      const selectedResume = resumes.find((r) => r.id === selectedResumeId);
-      const session = await createInterviewSession({
-        role: effectiveRole,
-        type: interviewType,
-        difficulty,
-        count: questionCount,
-        resumeAnalysis: selectedResume?.analysis || null,
-      });
-
-      toast.success("Interview created successfully.");
-      router.push(`/interview/${session.id}`);
-    } catch {
-      try {
-        const selectedResume = resumes.find((r) => r.id === selectedResumeId);
-        const session = await createInterviewSession({
-          role: effectiveRole,
-          type: interviewType,
-          difficulty,
-          count: questionCount,
-          resumeAnalysis: selectedResume?.analysis || null,
-        });
-        toast.success("Interview created successfully.");
-        router.push(`/interview/${session.id}`);
-      } catch {
-        setIsLoading(false);
-        toast.error("Unable to generate questions. Please try again.");
-      }
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error?.message || "Failed to create interview session. Please try again.");
+    } catch (err) {
+      console.error("[InterviewSetupForm Submit Error]:", err);
+      setIsLoading(false);
+      toast.error(err.message || "Unable to generate interview questions. Please try again.");
     }
   };
 

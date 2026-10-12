@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Mic, Square, Volume2, VolumeX } from "lucide-react";
+import { toast } from "sonner";
 
 export function QuestionCard({
   question,
@@ -15,22 +16,172 @@ export function QuestionCard({
   isSubmitting = false,
 }) {
   const [answerText, setAnswerText] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
+
+  const recognitionRef = useRef(null);
+  const startTextRef = useRef("");
+
   const maxChars = 4000;
   const charsRemaining = maxChars - answerText.length;
   const isAnswerValid = answerText.trim().length > 0 && charsRemaining >= 0;
+
+  // Check Web Speech API support and cleanup on unmount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Stop active speech and audio when question changes
+  useEffect(() => {
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+      setIsListening(false);
+    }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  }, [question?.id, questionNumber]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error(
+        "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari."
+      );
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      startTextRef.current = answerText;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.info("Microphone active. Speak your answer clearly.");
+      };
+
+      recognition.onresult = (event) => {
+        let sessionTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          sessionTranscript += event.results[i][0].transcript;
+        }
+
+        const base = startTextRef.current ? startTextRef.current.trim() + " " : "";
+        const combined = (base + sessionTranscript.trim()).slice(0, maxChars);
+        setAnswerText(combined);
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === "not-allowed") {
+          toast.error(
+            "Microphone access was denied. Please allow microphone permissions in your browser."
+          );
+          setIsListening(false);
+        } else if (event.error !== "no-speech") {
+          toast.error(`Speech recognition: ${event.error}`);
+          setIsListening(false);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      toast.error("Could not access microphone.");
+      setIsListening(false);
+    }
+  };
+
+  const toggleSpeakQuestion = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      toast.error("Text-to-speech is not supported in this browser.");
+      return;
+    }
+
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const textToRead =
+      question?.questionText ||
+      question?.question ||
+      question?.question_text ||
+      "";
+    if (!textToRead) return;
+
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.rate = 0.95;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleKeyDown = (e) => {
     // Ctrl + Enter or Cmd + Enter submits
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       if (isAnswerValid && !isSubmitting) {
         e.preventDefault();
-        onSubmitAnswer(answerText);
+        handleSubmit();
       }
     }
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+      setIsListening(false);
+    }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
     if (isAnswerValid && !isSubmitting) {
       onSubmitAnswer(answerText);
     }
@@ -40,30 +191,108 @@ export function QuestionCard({
     <Card className="bg-[#111936] border-[#232C52] text-slate-100 shadow-lg">
       <CardHeader className="pb-3 border-b border-[#232C52]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge
-            variant="outline"
-            className="border-[#4F7CFF]/40 bg-[#4F7CFF]/10 text-[#4F7CFF] font-semibold text-xs"
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="border-[#4F7CFF]/40 bg-[#4F7CFF]/10 text-[#4F7CFF] font-semibold text-xs"
+            >
+              {question?.topic || "General"}
+            </Badge>
+            <span className="text-xs font-semibold text-slate-400">
+              Category: {question?.category || "Technical"}
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleSpeakQuestion}
+            className={`h-7 px-2.5 text-xs gap-1.5 transition-colors ${
+              isSpeaking
+                ? "bg-[#4F7CFF]/20 text-[#4F7CFF] border border-[#4F7CFF]/40 animate-pulse"
+                : "text-slate-400 hover:text-white hover:bg-[#1E2958]"
+            }`}
+            title={isSpeaking ? "Stop reading question" : "Listen to question aloud"}
           >
-            {question?.topic || "General"}
-          </Badge>
-          <span className="text-xs font-semibold text-slate-400">
-            Category: {question?.category || "Technical"}
-          </span>
+            {isSpeaking ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5" />
+                Stop Audio
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5" />
+                Read Aloud
+              </>
+            )}
+          </Button>
         </div>
         <CardTitle className="text-lg sm:text-xl font-bold text-white mt-3 leading-relaxed">
-          {question?.questionText || question?.question || question?.question_text || "Loading question..."}
+          {question?.questionText ||
+            question?.question ||
+            question?.question_text ||
+            "Loading question..."}
         </CardTitle>
       </CardHeader>
 
       <CardContent className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label
-              htmlFor="candidate-answer"
-              className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2"
-            >
-              Your Response
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label
+                htmlFor="candidate-answer"
+                className="block text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              >
+                Your Response
+              </label>
+
+              {speechSupported && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleListening}
+                  disabled={isSubmitting}
+                  className={`h-7 px-2.5 text-xs gap-1.5 font-medium transition-all ${
+                    isListening
+                      ? "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 hover:text-red-300 animate-pulse"
+                      : "bg-[#161F42] border-[#232C52] text-slate-300 hover:text-white hover:bg-[#1E2958]"
+                  }`}
+                  title={
+                    isListening
+                      ? "Click to stop recording"
+                      : "Speak your answer into the microphone"
+                  }
+                >
+                  {isListening ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                      <Square className="w-3 h-3 fill-current" />
+                      Stop Dictation
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-3.5 h-3.5 text-[#4F7CFF]" />
+                      Voice Dictation
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {isListening && (
+              <div className="mb-2 px-3 py-1.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span>
+                  Listening to your voice... Speak clearly. Words will appear in real time below.
+                </span>
+              </div>
+            )}
+
             <Textarea
               id="candidate-answer"
               rows={7}
@@ -71,15 +300,23 @@ export function QuestionCard({
               onChange={(e) => setAnswerText(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isSubmitting}
-              placeholder="Structure your answer clearly. Explain concepts, implementation details, trade-offs, and examples... (Ctrl + Enter to submit)"
+              placeholder="Structure your answer clearly. Explain concepts, implementation details, trade-offs, and examples... Or click 'Voice Dictation' to speak! (Ctrl + Enter to submit)"
               className="w-full bg-[#0B1020] border-[#232C52] text-slate-100 placeholder:text-slate-500 rounded-lg focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] resize-y text-sm leading-relaxed p-4"
               maxLength={maxChars}
             />
             <div className="flex items-center justify-between mt-2 text-xs">
               <span className="text-slate-400">
-                Press <kbd className="px-1.5 py-0.5 rounded bg-[#161F42] border border-[#232C52] text-[11px] font-mono text-slate-300">Ctrl+Enter</kbd> to submit
+                Press{" "}
+                <kbd className="px-1.5 py-0.5 rounded bg-[#161F42] border border-[#232C52] text-[11px] font-mono text-slate-300">
+                  Ctrl+Enter
+                </kbd>{" "}
+                to submit
               </span>
-              <span className={charsRemaining < 200 ? "text-amber-400" : "text-slate-400"}>
+              <span
+                className={
+                  charsRemaining < 200 ? "text-amber-400" : "text-slate-400"
+                }
+              >
                 {answerText.length} / {maxChars}
               </span>
             </div>
@@ -100,3 +337,4 @@ export function QuestionCard({
     </Card>
   );
 }
+

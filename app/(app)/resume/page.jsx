@@ -9,10 +9,8 @@ import { FileText, Calendar, HardDrive, Sparkles } from "lucide-react";
 import { mockResumes } from "@/lib/mock-data";
 
 export default function ResumePage() {
-  const [resumes, setResumes] = useState(mockResumes);
-  const [activeResumeId, setActiveResumeId] = useState(
-    mockResumes.length > 0 ? mockResumes[0].id : null
-  );
+  const [resumes, setResumes] = useState([]);
+  const [activeResumeId, setActiveResumeId] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -43,7 +41,7 @@ export default function ResumePage() {
       <div className="space-y-1">
         <div className="flex items-center gap-2 text-xs font-semibold text-[#4F7CFF] uppercase tracking-wider mb-1">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Azure Blob Storage Pipeline</span>
+          <span>AI Document Intelligence</span>
         </div>
         <h2 className="text-2xl font-extrabold text-white tracking-tight">
           Resume Analysis & Tailored Interviews

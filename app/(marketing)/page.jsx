@@ -305,11 +305,8 @@ export default function MarketingLandingPage() {
           <p>© 2026 AI Interview Coach. All rights reserved.</p>
           <div className="flex items-center gap-4 text-slate-400">
             <a href="/api/health" className="hover:text-white transition-colors">
-              Health Status
+              System Health
             </a>
-            <Link href="/dev/states" className="hover:text-[#4F7CFF] transition-colors">
-              UI States Explorer
-            </Link>
           </div>
         </div>
       </footer>
