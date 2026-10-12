@@ -55,7 +55,7 @@ export function Sidebar({ className }) {
             {appName}
           </span>
           <span className="text-[11px] text-slate-400 font-medium block">
-            Cloud Computing MVP
+            AI Interview Platform
           </span>
         </div>
       </div>

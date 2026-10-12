@@ -65,11 +65,6 @@ export function Navbar({ title = "Dashboard" }) {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full border border-border bg-[#111936] text-xs text-slate-300">
-          <Sparkles className="w-3.5 h-3.5 text-[#4F7CFF]" />
-          <span>Azure Cloud Demo</span>
-        </div>
-
         <DropdownMenu>
           <DropdownMenuTrigger
             className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F7CFF] cursor-pointer"

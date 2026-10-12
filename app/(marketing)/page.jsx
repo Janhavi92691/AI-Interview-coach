@@ -62,7 +62,7 @@ export default function MarketingLandingPage() {
       <section className="py-20 sm:py-28 px-6 text-center max-w-4xl mx-auto space-y-8">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#232C52] bg-[#111936] text-xs font-semibold text-slate-300 shadow-sm">
           <Sparkles className="w-4 h-4 text-[#4F7CFF]" />
-          <span>Azure Cloud Architecture • College Viva & Demo Ready</span>
+          <span>AI-Powered Technical & HR Mock Interviews</span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
@@ -302,7 +302,7 @@ export default function MarketingLandingPage() {
             </div>
             <span className="font-semibold text-slate-300">{appName}</span>
           </div>
-          <p>© 2026 AI Interview Coach. Built for Cloud Computing submission and viva demonstration.</p>
+          <p>© 2026 AI Interview Coach. All rights reserved.</p>
           <div className="flex items-center gap-4 text-slate-400">
             <a href="/api/health" className="hover:text-white transition-colors">
               Health Status
