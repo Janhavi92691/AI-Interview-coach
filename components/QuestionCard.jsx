@@ -22,9 +22,8 @@ export function QuestionCard({
   const [speechSupported, setSpeechSupported] = useState(true);
 
   const recognitionRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const streamRef = useRef(null);
+  const azureRecognizerRef = useRef(null);
+  const baseTextRef = useRef("");
   const startTextRef = useRef("");
 
   const maxChars = 4000;
@@ -46,14 +45,17 @@ export function QuestionCard({
           recognitionRef.current.abort();
         } catch (_) {}
       }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      if (azureRecognizerRef.current) {
         try {
-          mediaRecorderRef.current.stop();
-        } catch (_) {}
-      }
-      if (streamRef.current) {
-        try {
-          streamRef.current.getTracks().forEach((t) => t.stop());
+          azureRecognizerRef.current.stopContinuousRecognitionAsync(
+            () => {
+              try {
+                azureRecognizerRef.current.close();
+                azureRecognizerRef.current = null;
+              } catch (_) {}
+            },
+            () => {}
+          );
         } catch (_) {}
       }
       if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -70,16 +72,19 @@ export function QuestionCard({
       } catch (_) {}
       setIsListening(false);
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+    if (azureRecognizerRef.current) {
       try {
-        mediaRecorderRef.current.stop();
+        azureRecognizerRef.current.stopContinuousRecognitionAsync(
+          () => {
+            try {
+              azureRecognizerRef.current.close();
+              azureRecognizerRef.current = null;
+            } catch (_) {}
+          },
+          () => {}
+        );
       } catch (_) {}
       setIsListening(false);
-    }
-    if (streamRef.current) {
-      try {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      } catch (_) {}
     }
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -87,112 +92,120 @@ export function QuestionCard({
     }
   }, [question?.id, questionNumber]);
 
-  // Fallback audio recorder for Firefox & non-Chromium browsers using Azure Speech
-  const startAzureMediaRecording = async () => {
-    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      toast.error("Audio recording is not supported in this browser.");
-      return;
-    }
+  // Real-time live streaming speech recognition for Firefox & all browsers via Azure Speech SDK
+  const startLiveAzureSpeech = async () => {
+    setIsTranscribing(true);
+    const toastId = toast.loading("Connecting to Azure Speech...");
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      // 1. Fetch short-lived token from Next.js server
+      const tokenRes = await fetch("/api/speech/token");
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(
+          err.error?.message || "Failed to retrieve speech authorization token."
+        );
+      }
+      const { token, region } = await tokenRes.json();
 
-      const mimeType =
-        typeof MediaRecorder !== "undefined" &&
-        MediaRecorder.isTypeSupported("audio/webm; codecs=opus")
-          ? "audio/webm; codecs=opus"
-          : typeof MediaRecorder !== "undefined" &&
-            MediaRecorder.isTypeSupported("audio/ogg; codecs=opus")
-          ? "audio/ogg; codecs=opus"
-          : "";
+      // 2. Load Azure Speech SDK dynamically in client
+      const SpeechSDK = await import("microsoft-cognitiveservices-speech-sdk");
 
-      const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-      audioChunksRef.current = [];
+      const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(
+        token,
+        region
+      );
+      speechConfig.speechRecognitionLanguage = "en-US";
 
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+      const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+      const recognizer = new SpeechSDK.SpeechRecognizer(
+        speechConfig,
+        audioConfig
+      );
+
+      baseTextRef.current = answerText;
+
+      // Event 1: recognizing - FIRED LIVE IN REAL TIME AS YOU SPEAK WORDS!
+      recognizer.recognizing = (s, e) => {
+        if (e.result.text) {
+          const prefix = baseTextRef.current ? baseTextRef.current.trim() + " " : "";
+          const combined = (prefix + e.result.text).slice(0, maxChars);
+          setAnswerText(combined);
         }
       };
 
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
+      // Event 2: recognized - Commits completed phrases permanently
+      recognizer.recognized = (s, e) => {
+        if (
+          e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech &&
+          e.result.text
+        ) {
+          baseTextRef.current =
+            (baseTextRef.current ? baseTextRef.current.trim() + " " : "") +
+            e.result.text;
+          setAnswerText(baseTextRef.current.slice(0, maxChars));
+        }
+      };
 
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: recorder.mimeType || "audio/webm",
-        });
+      recognizer.canceled = (s, e) => {
+        console.warn("Azure Speech canceled:", e.errorDetails);
+        if (e.reason === SpeechSDK.CancellationReason.Error) {
+          toast.error(
+            `Azure Speech: ${e.errorDetails || "Microphone or network error"}`
+          );
+        }
+        setIsListening(false);
+      };
 
-        if (audioBlob.size === 0) return;
+      recognizer.sessionStopped = () => {
+        setIsListening(false);
+      };
 
-        setIsTranscribing(true);
-        const toastId = toast.loading("Transcribing your answer via Azure Speech...");
-
-        try {
-          const res = await fetch("/api/speech/transcribe", {
-            method: "POST",
-            headers: {
-              "Content-Type": audioBlob.type || "audio/webm",
-            },
-            body: audioBlob,
-          });
-
-          const data = await res.json().catch(() => ({}));
-          toast.dismiss(toastId);
-
-          if (!res.ok) {
-            if (data.error?.code === "AZURE_SPEECH_NOT_CONFIGURED") {
-              toast.error(
-                "Azure Speech Key is needed for Firefox. Add AZURE_SPEECH_KEY in .env.local, or open in Microsoft Edge for free built-in speech!",
-                { duration: 8000 }
-              );
-            } else {
-              toast.error(data.error?.message || "Failed to transcribe audio via Azure.");
-            }
-            return;
-          }
-
-          if (data.text) {
-            setAnswerText((prev) => {
-              const prefix = prev ? prev.trim() + " " : "";
-              return (prefix + data.text).slice(0, maxChars);
-            });
-            toast.success("Voice transcribed via Azure Speech!");
-          } else {
-            toast.info("No speech detected. Please try speaking clearly into your mic.");
-          }
-        } catch (err) {
-          toast.dismiss(toastId);
-          console.error("Transcription fetch error:", err);
-          toast.error("Failed to connect to Azure Speech endpoint.");
-        } finally {
+      recognizer.startContinuousRecognitionAsync(
+        () => {
+          azureRecognizerRef.current = recognizer;
+          setIsListening(true);
           setIsTranscribing(false);
+          toast.dismiss(toastId);
+          toast.info(
+            "Microphone active! Speak into your mic — words will appear live in real time."
+          );
+        },
+        (err) => {
+          console.error("Failed to start continuous recognition:", err);
+          setIsTranscribing(false);
+          setIsListening(false);
+          toast.dismiss(toastId);
+          toast.error("Could not access microphone or connect to Azure Speech.");
         }
-      };
-
-      recorder.start(250);
-      mediaRecorderRef.current = recorder;
-      setIsListening(true);
-      toast.info("Microphone recording. Speak your answer, then click 'Stop & Transcribe' when done.");
+      );
     } catch (err) {
-      console.error("Microphone access error in Firefox:", err);
-      toast.error("Microphone access was denied. Please allow microphone permissions.");
+      console.error("Live Azure Speech error:", err);
+      setIsTranscribing(false);
       setIsListening(false);
+      toast.dismiss(toastId);
+      toast.error(err.message || "Failed to start speech recognition.");
     }
   };
 
   const toggleListening = () => {
     if (isListening) {
+      if (azureRecognizerRef.current) {
+        try {
+          azureRecognizerRef.current.stopContinuousRecognitionAsync(
+            () => {
+              try {
+                azureRecognizerRef.current.close();
+                azureRecognizerRef.current = null;
+              } catch (_) {}
+            },
+            (err) => console.error("Error stopping Azure recognizer:", err)
+          );
+        } catch (_) {}
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch (_) {}
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-        try {
-          mediaRecorderRef.current.stop();
         } catch (_) {}
       }
       setIsListening(false);
@@ -204,7 +217,7 @@ export function QuestionCard({
         ? window.SpeechRecognition || window.webkitSpeechRecognition
         : null;
 
-    // In Chrome / Edge / Safari: Use native real-time Web Speech API
+    // In Chrome / Edge: Use native real-time Web Speech API
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
@@ -216,7 +229,7 @@ export function QuestionCard({
 
         recognition.onstart = () => {
           setIsListening(true);
-          toast.info("Microphone active. Speak your answer clearly.");
+          toast.info("Microphone active! Speak into your mic — words appear live in real time.");
         };
 
         recognition.onresult = (event) => {
@@ -238,8 +251,8 @@ export function QuestionCard({
             );
             setIsListening(false);
           } else if (event.error !== "no-speech") {
-            toast.error(`Speech recognition: ${event.error}`);
-            setIsListening(false);
+            // Automatically switch to Azure Speech if browser speech engine has issues
+            startLiveAzureSpeech();
           }
         };
 
@@ -250,13 +263,12 @@ export function QuestionCard({
         recognitionRef.current = recognition;
         recognition.start();
       } catch (err) {
-        console.error("Failed to start speech recognition:", err);
-        toast.error("Could not access microphone.");
-        setIsListening(false);
+        console.error("Browser speech failed, switching to Azure:", err);
+        startLiveAzureSpeech();
       }
     } else {
-      // In Firefox & other browsers: Use HTML5 MediaRecorder + Azure Speech Service
-      startAzureMediaRecording();
+      // In Firefox & all non-Chromium browsers: Use Azure Speech SDK LIVE REAL-TIME STREAMING!
+      startLiveAzureSpeech();
     }
   };
 
@@ -415,9 +427,7 @@ export function QuestionCard({
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                   </span>
                   <span className="font-medium">
-                    {speechSupported
-                      ? "Microphone is live. Speak clearly — words appear in real time."
-                      : "Recording audio... Speak your full response, then click 'Stop & Transcribe' to convert to text."}
+                    Microphone is active! Speak clearly into your mic — words will appear live in real time.
                   </span>
                 </div>
                 <Button
@@ -427,7 +437,7 @@ export function QuestionCard({
                   className="h-6 px-2.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white gap-1 shadow"
                 >
                   <Square className="w-2.5 h-2.5 fill-current" />
-                  {speechSupported ? "Stop Mic" : "Stop & Transcribe"}
+                  Stop Mic
                 </Button>
               </div>
             )}
@@ -491,7 +501,7 @@ export function QuestionCard({
                   <>
                     <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                     <Square className="w-3.5 h-3.5 fill-current" />
-                    {speechSupported ? "Stop Mic" : "Stop & Transcribe"}
+                    Stop Mic
                   </>
                 ) : (
                   <>
