@@ -517,12 +517,6 @@ export function QuestionCard({
                   Listening...
                 </span>
               )}
-
-              {!speechSupported && (
-                <span className="text-[11px] text-[#4F7CFF] bg-[#4F7CFF]/10 border border-[#4F7CFF]/30 px-2 py-0.5 rounded hidden sm:inline-flex items-center gap-1 font-medium">
-                  Azure Speech Enabled
-                </span>
-              )}
             </div>
 
             <Button
