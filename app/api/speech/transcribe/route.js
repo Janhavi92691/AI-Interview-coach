@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/session.js";
+import { getCurrentUser } from "@/lib/auth";
 
 /**
  * POST /api/speech/transcribe
