@@ -172,10 +172,10 @@ export function QuestionCard({
         }
       };
 
-      recorder.start();
+      recorder.start(250);
       mediaRecorderRef.current = recorder;
       setIsListening(true);
-      toast.info("Microphone recording. Speak clearly, then click 'Stop Mic' when finished.");
+      toast.info("Microphone recording. Speak your answer, then click 'Stop & Transcribe' when done.");
     } catch (err) {
       console.error("Microphone access error in Firefox:", err);
       toast.error("Microphone access was denied. Please allow microphone permissions.");
@@ -408,24 +408,26 @@ export function QuestionCard({
             </div>
 
             {isListening && (
-              <div className="mb-2 px-3.5 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center justify-between gap-2 shadow-inner">
+              <div className="mb-2 px-3.5 py-2.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-200 text-xs flex flex-wrap items-center justify-between gap-2 shadow-inner">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                   </span>
                   <span className="font-medium">
-                    Microphone is active. Speak clearly into your mic — your words are being typed live.
+                    {speechSupported
+                      ? "Microphone is live. Speak clearly — words appear in real time."
+                      : "Recording audio... Speak your full response, then click 'Stop & Transcribe' to convert to text."}
                   </span>
                 </div>
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
                   onClick={toggleListening}
-                  className="h-6 px-2 text-xs text-red-300 hover:text-white hover:bg-red-500/20"
+                  className="h-6 px-2.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white gap-1 shadow"
                 >
-                  Stop
+                  <Square className="w-2.5 h-2.5 fill-current" />
+                  {speechSupported ? "Stop Mic" : "Stop & Transcribe"}
                 </Button>
               </div>
             )}
@@ -489,7 +491,7 @@ export function QuestionCard({
                   <>
                     <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                     <Square className="w-3.5 h-3.5 fill-current" />
-                    Stop Mic
+                    {speechSupported ? "Stop Mic" : "Stop & Transcribe"}
                   </>
                 ) : (
                   <>

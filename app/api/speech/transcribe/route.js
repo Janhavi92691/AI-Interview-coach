@@ -7,7 +7,10 @@ import { getCurrentUser } from "@/lib/auth";
  */
 export async function POST(req) {
   try {
-    await getCurrentUser({ requireAuth: true });
+    // Optional user verification (does not block speech-to-text)
+    try {
+      await getCurrentUser({ requireAuth: false });
+    } catch (_) {}
 
     const speechKey = process.env.AZURE_SPEECH_KEY;
     const speechRegion = process.env.AZURE_SPEECH_REGION || "uaenorth";
