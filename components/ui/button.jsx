@@ -44,11 +44,14 @@ function Button({
   variant = "default",
   size = "default",
   type = "button",
+  disabled,
   ...props
 }) {
   return (
     <button
       type={type}
+      disabled={disabled ? true : undefined}
+      suppressHydrationWarning
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
