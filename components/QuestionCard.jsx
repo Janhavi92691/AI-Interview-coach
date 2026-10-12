@@ -77,7 +77,8 @@ export function QuestionCard({
       window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast.error(
-        "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari."
+        "Firefox does not have built-in speech recognition. Please open http://localhost:3000 in Microsoft Edge or Google Chrome to speak your answer with the mic!",
+        { duration: 7000 }
       );
       return;
     }
@@ -366,6 +367,12 @@ export function QuestionCard({
                 <span className="text-xs text-red-400 font-medium animate-pulse hidden sm:inline-flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                   Listening...
+                </span>
+              )}
+
+              {!speechSupported && (
+                <span className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded hidden sm:inline-flex items-center gap-1">
+                  Works in Edge & Chrome
                 </span>
               )}
             </div>
