@@ -39,10 +39,10 @@ export function Navbar({ title = "Dashboard" }) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       toast.success("Logged out successfully");
-      router.push("/login");
+      router.push("/");
       router.refresh();
     } catch {
-      router.push("/login");
+      router.push("/");
     }
   };
 

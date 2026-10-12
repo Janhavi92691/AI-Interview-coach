@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   PlusCircle,
@@ -12,6 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -23,7 +24,19 @@ const NAV_ITEMS = [
 
 export function Sidebar({ className }) {
   const pathname = usePathname();
+  const router = useRouter();
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "AI Interview Coach";
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      toast.success("Logged out successfully");
+      router.push("/");
+      router.refresh();
+    } catch {
+      router.push("/");
+    }
+  };
 
   return (
     <aside
@@ -80,13 +93,14 @@ export function Sidebar({ className }) {
 
       {/* Footer Profile & Logout */}
       <div className="pt-4 border-t border-border/60 mt-auto">
-        <Link
-          href="/login"
-          className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer text-left"
         >
           <LogOut className="w-4 h-4" />
           <span>Log out</span>
-        </Link>
+        </button>
       </div>
     </aside>
   );

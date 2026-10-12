@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Calendar, LogOut, Award, BookOpen, TrendingUp, ShieldCheck } from "lucide-react";
+import { Mail, Calendar, Award, BookOpen, TrendingUp, ShieldCheck } from "lucide-react";
+import { SignOutButton } from "@/components/SignOutButton";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 
@@ -141,15 +142,7 @@ export default async function ProfilePage() {
             Your session is secured using an <code className="text-[#4F7CFF]">httpOnly</code> signed JWT cookie with HS256 encryption. Passwords are never returned in responses.
           </p>
 
-          <Link href="/login">
-            <Button
-              variant="outline"
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 gap-2 shrink-0 text-xs font-semibold"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out of Account
-            </Button>
-          </Link>
+          <SignOutButton />
         </CardContent>
       </Card>
     </div>
