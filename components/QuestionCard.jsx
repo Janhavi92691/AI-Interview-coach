@@ -247,49 +247,58 @@ export function QuestionCard({
                 Your Response
               </label>
 
-              {speechSupported && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleListening}
-                  disabled={isSubmitting}
-                  className={`h-7 px-2.5 text-xs gap-1.5 font-medium transition-all ${
-                    isListening
-                      ? "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 hover:text-red-300 animate-pulse"
-                      : "bg-[#161F42] border-[#232C52] text-slate-300 hover:text-white hover:bg-[#1E2958]"
-                  }`}
-                  title={
-                    isListening
-                      ? "Click to stop recording"
-                      : "Speak your answer into the microphone"
-                  }
-                >
-                  {isListening ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                      <Square className="w-3 h-3 fill-current" />
-                      Stop Dictation
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-3.5 h-3.5 text-[#4F7CFF]" />
-                      Voice Dictation
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={toggleListening}
+                disabled={isSubmitting}
+                className={`h-7 px-2.5 text-xs gap-1.5 font-medium transition-all ${
+                  isListening
+                    ? "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30 hover:text-red-300 animate-pulse"
+                    : "bg-[#161F42] border-[#232C52] text-slate-300 hover:text-white hover:bg-[#1E2958]"
+                }`}
+                title={
+                  isListening
+                    ? "Click to stop recording"
+                    : "Speak your answer into the microphone"
+                }
+              >
+                {isListening ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                    <Square className="w-3 h-3 fill-current" />
+                    Stop Dictation
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-3.5 h-3.5 text-[#4F7CFF]" />
+                    Voice Dictation
+                  </>
+                )}
+              </Button>
             </div>
 
             {isListening && (
-              <div className="mb-2 px-3 py-1.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </span>
-                <span>
-                  Listening to your voice... Speak clearly. Words will appear in real time below.
-                </span>
+              <div className="mb-2 px-3.5 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center justify-between gap-2 shadow-inner">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                  </span>
+                  <span className="font-medium">
+                    Microphone is active. Speak clearly into your mic — your words are being typed live.
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={toggleListening}
+                  className="h-6 px-2 text-xs text-red-300 hover:text-white hover:bg-red-500/20"
+                >
+                  Stop
+                </Button>
               </div>
             )}
 
@@ -300,7 +309,7 @@ export function QuestionCard({
               onChange={(e) => setAnswerText(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isSubmitting}
-              placeholder="Structure your answer clearly. Explain concepts, implementation details, trade-offs, and examples... Or click 'Voice Dictation' to speak! (Ctrl + Enter to submit)"
+              placeholder="Structure your answer clearly, or click 'Speak Answer (Mic)' below to speak into your microphone... (Ctrl + Enter to submit)"
               className="w-full bg-[#0B1020] border-[#232C52] text-slate-100 placeholder:text-slate-500 rounded-lg focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] resize-y text-sm leading-relaxed p-4"
               maxLength={maxChars}
             />
@@ -322,7 +331,45 @@ export function QuestionCard({
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#232C52]/60">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={toggleListening}
+                disabled={isSubmitting}
+                className={`font-semibold px-4 py-2 gap-2 text-xs sm:text-sm transition-all shadow-md ${
+                  isListening
+                    ? "bg-red-600 hover:bg-red-700 text-white animate-pulse ring-2 ring-red-400/50"
+                    : "bg-[#182247] hover:bg-[#202C5E] border border-[#4F7CFF]/50 text-slate-100 hover:text-white"
+                }`}
+                title={
+                  isListening
+                    ? "Click to stop recording"
+                    : "Speak your answer using the microphone"
+                }
+              >
+                {isListening ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    Stop Mic
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-4 h-4 text-[#4F7CFF]" />
+                    Speak Answer (Mic)
+                  </>
+                )}
+              </Button>
+
+              {isListening && (
+                <span className="text-xs text-red-400 font-medium animate-pulse hidden sm:inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                  Listening...
+                </span>
+              )}
+            </div>
+
             <Button
               type="submit"
               disabled={!isAnswerValid || isSubmitting}
