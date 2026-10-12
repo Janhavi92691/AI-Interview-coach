@@ -58,12 +58,16 @@ export async function POST(req) {
       }
     }
 
-    // Generate questions using AI facade (routes to Mock or Azure OpenAI)
+    // Generate questions using AI facade (routes to Mock, Azure OpenAI, or Functions)
     const { questions: generatedQuestions } = await ai.generateQuestions({
+      role: job_role,
       job_role,
+      type: interview_type,
       interview_type,
       difficulty,
       count: total_questions,
+      total_questions,
+      resumeAnalysis: resumeText,
       resume_text: resumeText,
     });
 
