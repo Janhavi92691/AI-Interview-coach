@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Standalone output bundle for Azure App Service Linux hosting
-  output: "standalone",
-
   // Disable auto-generated agent guidelines from Next.js 16
   agentRules: false,
 
